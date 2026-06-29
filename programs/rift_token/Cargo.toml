@@ -7,3 +7,4 @@ edition = "2021"
 anchor-lang = "0.30.0"
 anchor-spl = "0.30.0"
 rift-common = { path = "../../crates/rift-common" }
+ultra_core_rift = { path = "../../programs/ultra_core_rift" }

@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
-use rift_common::{CoreState, RiftError};
+use rift_common::RiftError;
+use ultra_core_rift::CoreState;
 
 declare_id!("5yYh3k3nZs9q2xVhQ1uK7q9s7Jc8mG2hLs2sP3vR9b1A");
 

@@ -13,17 +13,15 @@ pub mod ultra_core_rift {
 
     pub fn initialize(ctx: Context<Initialize>, gate: Pubkey) -> Result<()> {
         let state = &mut ctx.accounts.core_state;
-        *state = CoreState {
-            gate,
-            paused: false,
-            global_field: 0,
-            total_base_sum: 0,
-            total_supply: 0,
-            total_minted: 0,
-            total_burned: 0,
-            p: 0,
-            dust_accumulator: 0,
-        };
+        state.gate = gate;
+        state.paused = false;
+        state.global_field = 0;
+        state.total_base_sum = 0;
+        state.total_supply = 0;
+        state.total_minted = 0;
+        state.total_burned = 0;
+        state.p = 0;
+        state.dust_accumulator = 0;
         state.check_invariant()
     }
 
@@ -37,8 +35,8 @@ pub mod ultra_core_rift {
     /// Gate-only: set or update the weight of a directed edge between two participants.
     pub fn set_edge(
         ctx: Context<SetEdge>,
-        _from: Pubkey,
-        _to: Pubkey,
+        from: Pubkey,
+        to: Pubkey,
         weight: i128,
     ) -> Result<()> {
         require!(
@@ -220,6 +218,95 @@ pub mod ultra_core_rift {
 }
 
 // ============================================================================
+// CORE STATE
+// ============================================================================
+
+#[account]
+pub struct CoreState {
+    pub gate: Pubkey,           // 32
+    pub paused: bool,           //  1
+    pub global_field: i128,     // 16
+    pub total_base_sum: i128,   // 16
+    pub total_supply: u128,     // 16
+    pub total_minted: u128,     // 16
+    pub total_burned: u128,     // 16
+    pub p: u64,                 //  8
+    pub dust_accumulator: u128, // 16
+}
+
+impl CoreState {
+    pub const SPACE: usize = 8 + 32 + 1 + 16 * 6 + 8;
+
+    pub fn debt_limit(&self) -> Result<i128> {
+        let factor = (self.p as i128)
+            .checked_mul(10)
+            .ok_or(RiftError::MathOverflow)?;
+
+        if factor == 0 {
+            return Ok(MIN_ABS_DEBT);
+        }
+
+        let limit = (self.total_supply as i128)
+            .checked_div(factor)
+            .ok_or(RiftError::MathOverflow)?;
+        Ok(-limit)
+    }
+
+    pub fn check_invariant(&self) -> Result<()> {
+        require!(self.total_supply <= MAX_SUPPLY, RiftError::MathOverflow);
+
+        let field_contrib = self.global_field
+            .checked_mul(self.p as i128)
+            .ok_or(RiftError::MathOverflow)?;
+
+        let expected = self.total_base_sum
+            .checked_add(field_contrib)
+            .ok_or(RiftError::MathOverflow)?;
+
+        let supply_signed = self.total_supply as i128;
+        require!(supply_signed == expected, RiftError::InvariantViolation);
+
+        require!(
+            self.total_minted >= self.total_burned,
+            RiftError::InvariantViolation
+        );
+        let net_supply = self.total_minted
+            .checked_sub(self.total_burned)
+            .ok_or(RiftError::MathOverflow)?;
+        require!(self.total_supply == net_supply, RiftError::InvariantViolation);
+
+        if self.p > 0 {
+            require!(
+                self.dust_accumulator < self.p as u128,
+                RiftError::InvariantViolation
+            );
+        }
+        Ok(())
+    }
+}
+
+// ============================================================================
+// ACCOUNT STRUCTS
+// ============================================================================
+
+#[account]
+pub struct UserAccount {
+    pub authority: Pubkey,  // 32
+    pub base_balance: i128, // 16
+}
+impl UserAccount {
+    pub const SPACE: usize = 8 + 32 + 16; // = 56
+}
+
+#[account]
+pub struct EdgeAccount {
+    pub weight: i128, // 16
+}
+impl EdgeAccount {
+    pub const SPACE: usize = 8 + 16; // = 24
+}
+
+// ============================================================================
 // TRANSFER LOGIC
 // ============================================================================
 
@@ -391,10 +478,10 @@ pub struct TransferWithEdge<'info> {
 #[derive(Accounts)]
 #[instruction(from: Pubkey, to: Pubkey)]
 pub struct SetEdge<'info> {
-    #[account(has_one = gate @ RiftError::UnauthorizedGate)]
+    #[account(mut, has_one = gate @ RiftError::UnauthorizedGate)]
     pub core_state: Account<'info, CoreState>,
     #[account(
-        init_if_needed,
+        init,
         payer = gate,
         space = EdgeAccount::SPACE,
         seeds = [b"edge", from.as_ref(), to.as_ref()],
