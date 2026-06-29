@@ -1,0 +1,8 @@
+[package]
+name = "ultra_core_rift"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anchor-lang = "0.30.0"
+rift-common = { path = "../../crates/rift-common" }

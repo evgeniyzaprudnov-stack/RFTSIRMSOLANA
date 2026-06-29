@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "programs/ultra_core_rift",
+  "programs/rift_token",
+  "crates/rift-common",
+]
