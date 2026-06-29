@@ -27,11 +27,10 @@ pub enum RiftError {
     ZeroParticipants,
     #[msg("Physical limit reached: Applying negative entropy would overflow the system bounds.")]
     PhysicalOverflowLimit,
-    #[msg("Exit denied: Participants cannot unregister while holding a negative balance (debt)." )]
+    #[msg("Exit denied: Participants cannot unregister while holding a negative balance (debt).")]
     DebtOnExitNotAllowed,
     #[msg("Mathematical error: An arithmetic operation resulted in an overflow or underflow.")]
     MathOverflow,
     #[msg("Unauthorized: Invalid authority for target user.")]
     UnauthorizedAuthority,
 }
-

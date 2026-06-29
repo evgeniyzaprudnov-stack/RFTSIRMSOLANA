@@ -33,12 +33,7 @@ pub mod ultra_core_rift {
     }
 
     /// Gate-only: set or update the weight of a directed edge between two participants.
-    pub fn set_edge(
-        ctx: Context<SetEdge>,
-        from: Pubkey,
-        to: Pubkey,
-        weight: i128,
-    ) -> Result<()> {
+    pub fn set_edge(ctx: Context<SetEdge>, from: Pubkey, to: Pubkey, weight: i128) -> Result<()> {
         require!(
             weight >= -MAX_EDGE_COST && weight <= MAX_EDGE_COST,
             RiftError::EdgeLimitExceeded
@@ -55,13 +50,17 @@ pub mod ultra_core_rift {
     /// unchanged, we pre-subtract global_field from total_base_sum.
     pub fn register(ctx: Context<Register>, user: Pubkey) -> Result<()> {
         let state = &mut ctx.accounts.core_state;
-        require!(state.p < MAX_PARTICIPANTS, RiftError::MaxParticipantsReached);
+        require!(
+            state.p < MAX_PARTICIPANTS,
+            RiftError::MaxParticipantsReached
+        );
 
         let user_account = &mut ctx.accounts.user_account;
         user_account.authority = user;
         user_account.base_balance = 0;
 
-        state.total_base_sum = state.total_base_sum
+        state.total_base_sum = state
+            .total_base_sum
             .checked_sub(state.global_field)
             .ok_or(RiftError::MathOverflow)?;
 
@@ -86,10 +85,12 @@ pub mod ultra_core_rift {
             let burn = base as u128;
             require!(state.total_supply >= burn, RiftError::SupplyUnderflow);
 
-            state.total_supply = state.total_supply
+            state.total_supply = state
+                .total_supply
                 .checked_sub(burn)
                 .ok_or(RiftError::MathOverflow)?;
-            state.total_burned = state.total_burned
+            state.total_burned = state
+                .total_burned
                 .checked_add(burn)
                 .ok_or(RiftError::MathOverflow)?;
 
@@ -99,7 +100,8 @@ pub mod ultra_core_rift {
             });
         }
 
-        state.total_base_sum = state.total_base_sum
+        state.total_base_sum = state
+            .total_base_sum
             .checked_sub(base)
             .ok_or(RiftError::MathOverflow)?
             .checked_add(state.global_field)
@@ -129,7 +131,9 @@ pub mod ultra_core_rift {
             RiftError::UnauthorizedAuthority
         );
 
-        ctx.accounts.transfer_ctx.perform_transfer(amount, edge_cost)
+        ctx.accounts
+            .transfer_ctx
+            .perform_transfer(amount, edge_cost)
     }
 
     /// Gate-only: distribute amount evenly among all participants by incrementing
@@ -153,7 +157,8 @@ pub mod ultra_core_rift {
         // caller controls and should never reach in practice.
         let q_i128: i128 = q.try_into().map_err(|_| RiftError::MathOverflow)?;
 
-        state.global_field = state.global_field
+        state.global_field = state
+            .global_field
             .checked_add(q_i128)
             .ok_or(RiftError::MathOverflow)?;
 
@@ -161,10 +166,12 @@ pub mod ultra_core_rift {
         // kept for defensive clarity.
         let distributed = q.checked_mul(p_u128).ok_or(RiftError::MathOverflow)?;
 
-        state.total_supply = state.total_supply
+        state.total_supply = state
+            .total_supply
             .checked_add(distributed)
             .ok_or(RiftError::MathOverflow)?;
-        state.total_minted = state.total_minted
+        state.total_minted = state
+            .total_minted
             .checked_add(distributed)
             .ok_or(RiftError::MathOverflow)?;
 
@@ -194,19 +201,19 @@ pub mod ultra_core_rift {
         require!(p_i128 <= NEG_E_MAX_P, RiftError::PhysicalOverflowLimit);
 
         // delta = p * NEG_E (negative). Used solely to adjust total_base_sum.
-        let delta = p_i128
-            .checked_mul(NEG_E)
-            .ok_or(RiftError::MathOverflow)?;
+        let delta = p_i128.checked_mul(NEG_E).ok_or(RiftError::MathOverflow)?;
 
         // global_field shifts by one NEG_E tick, independent of p.
-        state.global_field = state.global_field
+        state.global_field = state
+            .global_field
             .checked_add(NEG_E)
             .ok_or(RiftError::MathOverflow)?;
 
         // field_contrib = global_field * p changes by NEG_E * p = delta (negative).
         // To keep total_supply = total_base_sum + field_contrib unchanged,
         // subtract delta. Since delta < 0, checked_sub(delta) effectively adds |delta|.
-        state.total_base_sum = state.total_base_sum
+        state.total_base_sum = state
+            .total_base_sum
             .checked_sub(delta)
             .ok_or(RiftError::MathOverflow)?;
 
@@ -255,11 +262,13 @@ impl CoreState {
     pub fn check_invariant(&self) -> Result<()> {
         require!(self.total_supply <= MAX_SUPPLY, RiftError::MathOverflow);
 
-        let field_contrib = self.global_field
+        let field_contrib = self
+            .global_field
             .checked_mul(self.p as i128)
             .ok_or(RiftError::MathOverflow)?;
 
-        let expected = self.total_base_sum
+        let expected = self
+            .total_base_sum
             .checked_add(field_contrib)
             .ok_or(RiftError::MathOverflow)?;
 
@@ -270,10 +279,14 @@ impl CoreState {
             self.total_minted >= self.total_burned,
             RiftError::InvariantViolation
         );
-        let net_supply = self.total_minted
+        let net_supply = self
+            .total_minted
             .checked_sub(self.total_burned)
             .ok_or(RiftError::MathOverflow)?;
-        require!(self.total_supply == net_supply, RiftError::InvariantViolation);
+        require!(
+            self.total_supply == net_supply,
+            RiftError::InvariantViolation
+        );
 
         if self.p > 0 {
             require!(
@@ -337,22 +350,30 @@ impl<'info> TransferCtx<'info> {
         // exceed MAX_SUPPLY and should never exist in a valid state.
         let amt: i128 = amount.try_into().map_err(|_| RiftError::MathOverflow)?;
 
-        let new_from = self.from_user.base_balance
+        let new_from = self
+            .from_user
+            .base_balance
             .checked_sub(amt)
             .ok_or(RiftError::MathOverflow)?
             .checked_sub(edge_cost)
             .ok_or(RiftError::MathOverflow)?;
 
-        require!(new_from >= state.debt_limit()?, RiftError::DebtLimitExceeded);
+        require!(
+            new_from >= state.debt_limit()?,
+            RiftError::DebtLimitExceeded
+        );
 
         self.from_user.base_balance = new_from;
-        self.to_user.base_balance = self.to_user.base_balance
+        self.to_user.base_balance = self
+            .to_user
+            .base_balance
             .checked_add(amt)
             .ok_or(RiftError::MathOverflow)?;
 
         if edge_cost != 0 {
             // total_base_sum must track the removal of edge_cost from circulation.
-            state.total_base_sum = state.total_base_sum
+            state.total_base_sum = state
+                .total_base_sum
                 .checked_sub(edge_cost)
                 .ok_or(RiftError::MathOverflow)?;
 
@@ -362,10 +383,12 @@ impl<'info> TransferCtx<'info> {
                     // edge_cost > 0 and edge_cost is i128, so cast to u128 is safe.
                     let burn = edge_cost as u128;
                     require!(state.total_supply >= burn, RiftError::SupplyUnderflow);
-                    state.total_supply = state.total_supply
+                    state.total_supply = state
+                        .total_supply
                         .checked_sub(burn)
                         .ok_or(RiftError::MathOverflow)?;
-                    state.total_burned = state.total_burned
+                    state.total_burned = state
+                        .total_burned
                         .checked_add(burn)
                         .ok_or(RiftError::MathOverflow)?;
                     emit!(BurnEvent {
@@ -378,10 +401,12 @@ impl<'info> TransferCtx<'info> {
                     // edge_cost < 0 and edge_cost >= -MAX_EDGE_COST > i128::MIN,
                     // so negation and cast to u128 are both safe.
                     let mint = (-edge_cost) as u128;
-                    state.total_supply = state.total_supply
+                    state.total_supply = state
+                        .total_supply
                         .checked_add(mint)
                         .ok_or(RiftError::MathOverflow)?;
-                    state.total_minted = state.total_minted
+                    state.total_minted = state
+                        .total_minted
                         .checked_add(mint)
                         .ok_or(RiftError::MathOverflow)?;
                     emit!(MintEvent {
