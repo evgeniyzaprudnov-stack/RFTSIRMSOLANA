@@ -1,6 +1,6 @@
 # Rift-Network
 
-![Rust](https://img.shields.io/badge/rust-1.85%2B-orange) ![Anchor](https://img.shields.io/badge/Anchor-0.30-blue) ![Solana](https://img.shields.io/badge/Solana-Program%20SDK-9945ff) ![CI](https://github.com/RFTSIRMSOLANA/RFTSIRMSOLANA/actions/workflows/rust.yml/badge.svg) ![License](https://img.shields.io/badge/license-MIT-green)
+![Rust](https://img.shields.io/badge/rust-1.85%2B-orange) ![Anchor](https://img.shields.io/badge/Anchor-0.30-blue) ![Solana](https://img.shields.io/badge/Solana-Program%20SDK-9945ff) ![CI](https://github.com/RFT-SIRM/Rift-Network/actions/workflows/rust.yml/badge.svg) ![License](https://img.shields.io/badge/license-MIT-green)
 
 Rift-Network is an experimental Solana protocol implemented with Anchor. It combines a core accounting layer with a separate token issuance layer to preserve a strict mathematical invariant while offering RIFT SPL token minting.
 
